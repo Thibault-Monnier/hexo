@@ -3,19 +3,20 @@ import { useEffect, useState } from 'react';
 import GameHudShell from '../game-screen/GameHudShell';
 
 type SandboxHudProps = {
-    positionName: string | null
-    isAuthenticated: boolean
-    occupiedCellCount: number
-    renderableCellCount: number
-    onResetBoard: () => void
-    onUndo: () => void
-    onRedo: () => void
-    onResetView: () => void
-    canUndo: boolean
-    canRedo: boolean
-    onSharePosition: () => void
-    canSharePosition: boolean
-    isSharingPosition: boolean
+    positionName: string | null;
+    isAuthenticated: boolean;
+    occupiedCellCount: number;
+    renderableCellCount: number;
+    onResetBoard: () => void;
+    onUndo: () => void;
+    onRedo: () => void;
+    onResetView: () => void;
+    canUndo: boolean;
+    canRedo: boolean;
+    onSharePosition: () => void;
+    canSharePosition: boolean;
+    isSharingPosition: boolean;
+    onCopyHgn: () => void;
 };
 
 function SandboxHud({
@@ -23,11 +24,16 @@ function SandboxHud({
     isAuthenticated,
     occupiedCellCount,
     renderableCellCount,
-    onResetBoard, onUndo, onRedo,
-    onResetView, canUndo, canRedo,
+    onResetBoard,
+    onUndo,
+    onRedo,
+    onResetView,
+    canUndo,
+    canRedo,
     onSharePosition,
     canSharePosition,
     isSharingPosition,
+    onCopyHgn,
 }: Readonly<SandboxHudProps>) {
     const [isHudOpen, setIsHudOpen] = useState(true);
     const resetBoardLabel = positionName ? `Restore Position` : `Clear Board`;
@@ -48,26 +54,29 @@ function SandboxHud({
 
         window.addEventListener(`keydown`, handleKeyDown);
         return () => window.removeEventListener(`keydown`, handleKeyDown);
-    }, [
-        canUndo, canRedo, onUndo, onRedo,
-    ]);
+    }, [canUndo, canRedo, onUndo, onRedo]);
 
     return (
         <GameHudShell
             isOpen={isHudOpen}
             onOpen={() => setIsHudOpen(true)}
             onClose={() => setIsHudOpen(false)}
-
             openIcon={
-                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                >
                     <path d="M5 8h14" />
                     <path d="M5 12h14" />
                     <path d="M5 16h14" />
                 </svg>
             }
-
             role="left"
-
             openTitle="Open"
             closeTitle="Close"
         >
@@ -79,24 +88,24 @@ function SandboxHud({
                     title="Close sandbox HUD"
                     className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-700/95 shadow-lg transition hover:bg-slate-600"
                 >
-                    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                    >
                         <path d="M6 6 18 18" />
                         <path d="M18 6 6 18" />
                     </svg>
                 </button>
             </div>
 
-            <div className="text-sm uppercase tracking-[0.25em] text-emerald-300">
-                Sandbox Mode
-            </div>
-
-            <h1 className="mt-1 text-2xl font-bold">
-                Infinite Hex Tic-Tac-Toe
-            </h1>
-
-            <div className="mt-2 text-sm text-slate-300">
-                {description}
-            </div>
+            <div className="text-sm uppercase tracking-[0.25em] text-emerald-300">Sandbox Mode</div>
+            <h1 className="mt-1 text-2xl font-bold">Infinite Hex Tic-Tac-Toe</h1>
+            <div className="mt-2 text-sm text-slate-300">{description}</div>
 
             <div className="mt-4 grid grid-cols-2 gap-4 text-sm md:grid-cols-1">
                 <div className="border-l border-white/18 pl-3">
@@ -124,23 +133,13 @@ function SandboxHud({
 
                     {positionName ? (
                         <>
-                            <div className="mt-1 truncate text-white">
-                                {positionName}
-                            </div>
-
-                            <div className="text-slate-300">
-                                Shared starting position
-                            </div>
+                            <div className="mt-1 truncate text-white">{positionName}</div>
+                            <div className="text-slate-300">Shared starting position</div>
                         </>
                     ) : (
                         <>
-                            <div className="mt-1 text-white">
-                                Clean board
-                            </div>
-
-                            <div className="text-slate-300">
-                                Local free play
-                            </div>
+                            <div className="mt-1 text-white">Clean board</div>
+                            <div className="text-slate-300">Local free play</div>
                         </>
                     )}
                 </div>
@@ -164,16 +163,22 @@ function SandboxHud({
                 <button
                     onClick={onSharePosition}
                     disabled={!canSharePosition || isSharingPosition}
-                    className={`min-w-[9rem] flex-1 rounded-full px-4 py-2 font-medium shadow-lg transition md:flex-none ${canSharePosition && !isSharingPosition
-                        ? enabledButtonClassName
-                        : disabledButtonClassName
+                    className={`min-w-[9rem] flex-1 rounded-full px-4 py-2 font-medium shadow-lg transition md:flex-none ${
+                        canSharePosition && !isSharingPosition
+                            ? enabledButtonClassName
+                            : disabledButtonClassName
                     }`}
                 >
                     {isSharingPosition ? `Sharing...` : `Share Link`}
                 </button>
-            </div>
 
-            <div className="pointer-events-auto mt-4 grid grid-cols-2 gap-2">
+                <button
+                    onClick={onCopyHgn}
+                    className={`min-w-[9rem] flex-1 rounded-full px-4 py-2 font-medium shadow-lg transition md:flex-none ${enabledButtonClassName}`}
+                >
+                    Copy HGN
+                </button>
+
                 <button
                     onClick={onUndo}
                     disabled={!canUndo}
@@ -185,9 +190,8 @@ function SandboxHud({
                 <button
                     onClick={onRedo}
                     disabled={!canRedo}
-                    className={`min-w-[9rem] flex-1 rounded-full px-4 py-2 font-medium shadow-lg transition md:flex-none ${canRedo
-                        ? enabledButtonClassName
-                        : disabledButtonClassName
+                    className={`min-w-[9rem] flex-1 rounded-full px-4 py-2 font-medium shadow-lg transition md:flex-none ${
+                        canRedo ? enabledButtonClassName : disabledButtonClassName
                     }`}
                 >
                     Redo

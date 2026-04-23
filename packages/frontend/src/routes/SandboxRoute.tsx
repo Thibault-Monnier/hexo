@@ -29,7 +29,11 @@ import SandboxWelcomeModal from '../components/sandbox/SandboxWelcomeModal';
 import SandboxWinnerBanner from '../components/sandbox/SandboxWinnerBanner';
 import { useQueryAccount, useQueryAccountPreferences } from '../query/accountClient';
 import { queryKeys } from '../query/queryDefinitions';
-import { createSandboxPosition, fetchSandboxPosition, useQuerySandboxPosition } from '../query/sandboxClient';
+import {
+    createSandboxPosition,
+    fetchSandboxPosition,
+    useQuerySandboxPosition,
+} from '../query/sandboxClient';
 import { kSandboxBotEngines, SandboxBotEngineInfo } from '../sandbox/botLoader';
 import {
     createDefaultSandboxPlayerModes,
@@ -39,6 +43,9 @@ import {
 } from '../sandbox/sandboxBotSettings';
 import { useSandboxBotController } from '../sandbox/useSandboxBotController';
 import { playTilePlacedSound } from '../soundEffects';
+import { HGNParser, HGNParsingError } from '../utils/hgn/HGNParser.ts';
+import { gameToHGNString, hgnToGame } from '../utils/hgn/hgnTranslator.ts';
+import { HGN } from '../utils/hgn/types.ts';
 import { formatPlacementSummary, formatSandboxPlayerLabel } from '../utils/routeMetadata';
 import type { SandboxRouteState } from './sandboxRouteState';
 
@@ -93,6 +100,18 @@ function extractSandboxPositionId(value: string) {
     }
 
     return normalizeSandboxPositionId(trimmedValue);
+}
+
+function parsePositionHgn(value: string): HGN | null {
+    try {
+        const hgnParser = new HGNParser(value);
+        return hgnParser.parse();
+    } catch (error) {
+        if (error instanceof HGNParsingError) {
+            return null;
+        }
+        throw error;
+    }
 }
 
 function getSandboxPlayerSlot(playerId: string): SandboxPlayerSlot {
@@ -608,7 +627,7 @@ function SandboxRoute() {
         }
     };
 
-    const importPosition = async (positionId: string) => {
+    const importPositionId = async (positionId: string) => {
         setImportModalError(null);
         setIsImportingPosition(true);
 
@@ -625,7 +644,29 @@ function SandboxRoute() {
                 void navigate(`/sandbox/${response.id}`);
             }
         } catch (error) {
-            setImportModalError(error instanceof Error ? error.message : `Failed to load sandbox position.`);
+            setImportModalError(
+                error instanceof Error ? error.message : `Failed to load sandbox position.`
+            );
+        } finally {
+            setIsImportingPosition(false);
+        }
+    };
+
+    const importPositionHgn = async (positionHgn: HGN) => {
+        setImportModalError(null);
+        setIsImportingPosition(true);
+
+        try {
+            const { name, gamePosition } = hgnToGame(positionHgn);
+            applySandboxPosition(name, gamePosition, null);
+            setIsWelcomeModalVisible(false);
+        } catch (error) {
+            setImportModalError(
+                error instanceof HGNParsingError
+                    ? error.message
+                    : `Failed to import sandbox position from HGN.`
+            );
+            throw error;
         } finally {
             setIsImportingPosition(false);
         }
@@ -669,18 +710,18 @@ function SandboxRoute() {
             <PageMetadata
                 {...(routeSandboxPositionQuery.data
                     ? {
-                        title: `${routeSandboxPositionQuery.data.name} • Sandbox Mode • ${DEFAULT_PAGE_TITLE}`,
-                        description: `Open the "${routeSandboxPositionQuery.data.name}" sandbox position with ${routeSandboxPositionQuery.data.gamePosition.cells.length} placed ${routeSandboxPositionQuery.data.gamePosition.cells.length === 1 ? `cell` : `cells`}. ${formatSandboxPlayerLabel(routeSandboxPositionQuery.data.gamePosition.currentTurnPlayer)} to move with ${formatPlacementSummary(routeSandboxPositionQuery.data.gamePosition.placementsRemaining)}.`,
-                        ogType: `article` as const,
-                    }
+                          title: `${routeSandboxPositionQuery.data.name} • Sandbox Mode • ${DEFAULT_PAGE_TITLE}`,
+                          description: `Open the "${routeSandboxPositionQuery.data.name}" sandbox position with ${routeSandboxPositionQuery.data.gamePosition.cells.length} placed ${routeSandboxPositionQuery.data.gamePosition.cells.length === 1 ? `cell` : `cells`}. ${formatSandboxPlayerLabel(routeSandboxPositionQuery.data.gamePosition.currentTurnPlayer)} to move with ${formatPlacementSummary(routeSandboxPositionQuery.data.gamePosition.placementsRemaining)}.`,
+                          ogType: `article` as const,
+                      }
                     : normalizedRoutePositionId && routeSandboxPositionQuery.error
-                        ? {
+                      ? {
                             title: `Sandbox Position Not Found • ${DEFAULT_PAGE_TITLE}`,
                             description: `The requested sandbox position could not be found. Open sandbox mode to start from a clean board or import another shared position.`,
                             ogType: `article` as const,
                             robots: `noindex, nofollow` as const,
                         }
-                        : {
+                      : {
                             title: `Sandbox Mode • ${DEFAULT_PAGE_TITLE}`,
                             description: `Play HeXO locally with no clock, control both sides, import shared positions, and explore custom boards.`,
                         })}
@@ -699,9 +740,11 @@ function SandboxRoute() {
                     <div className="flex h-full flex-col justify-between gap-4">
                         {!isWelcomeModalVisible && !isImportModalOpen && (
                             <SandboxTurnIndicator
-                                players={SANDBOX_PLAYERS.map(player => ({
+                                players={SANDBOX_PLAYERS.map((player) => ({
                                     ...player,
-                                    displayName: botPlayerIds.includes(player.id) ? `Bot as ${player.displayName}` : player.displayName,
+                                    displayName: botPlayerIds.includes(player.id)
+                                        ? `Bot as ${player.displayName}`
+                                        : player.displayName,
                                 }))}
                                 botPlayerIds={botPlayerIds}
                                 gameState={currentGameState}
@@ -714,7 +757,11 @@ function SandboxRoute() {
                             <SandboxWinnerBanner
                                 players={SANDBOX_PLAYERS}
                                 gameState={currentGameState}
-                                winnerId={isWinnerBannerVisible ? currentGameState.winner?.playerId ?? null : null}
+                                winnerId={
+                                    isWinnerBannerVisible
+                                        ? (currentGameState.winner?.playerId ?? null)
+                                        : null
+                                }
                                 onResetBoard={resetSandbox}
                                 onExploreBoard={() => setIsWinnerBannerVisible(false)}
                             />
@@ -734,8 +781,10 @@ function SandboxRoute() {
                             isLoading={isImportingPosition}
                             errorMessage={importModalError}
                             parsePositionId={extractSandboxPositionId}
+                            parsePositionHgn={parsePositionHgn}
                             onClose={closeImportModal}
-                            onImport={(positionId) => void importPosition(positionId)}
+                            onIdImport={(positionId) => void importPositionId(positionId)}
+                            onHgnImport={(positionHgn) => void importPositionHgn(positionHgn)}
                             onInputChange={() => setImportModalError(null)}
                         />
 
@@ -755,10 +804,8 @@ function SandboxRoute() {
                             <SandboxBotFactoryModal
                                 isOpen={isBotFactoryModalOpen}
                                 onClose={() => setIsBotFactoryModalOpen(false)}
-
                                 availableEngines={kSandboxBotEngines}
                                 selectedEngine={selectedBotEngine?.name ?? null}
-
                                 onSelectBotFactory={handleSelectBotEngine}
                             />
                         )}
@@ -769,14 +816,13 @@ function SandboxRoute() {
                                     isOpen={isBotPanelOpen}
                                     onOpen={() => setIsBotPanelOpen(true)}
                                     onClose={() => setIsBotPanelOpen(false)}
-
                                     selectedFactory={selectedBotEngine ?? null}
-
                                     botDisplayName={sandboxBotController.botDisplayName}
                                     botCapabilities={sandboxBotController.botCapabilities}
-                                    botAvailabilityMessage={sandboxBotController.botAvailabilityMessage}
+                                    botAvailabilityMessage={
+                                        sandboxBotController.botAvailabilityMessage
+                                    }
                                     botErrorMessage={sandboxBotController.lastErrorMessage}
-
                                     botPlayerModes={botPlayerModes}
                                     currentTurnPlayerSlot={currentTurnPlayerSlot}
                                     botTimeoutMs={botTimeoutMs}
@@ -805,6 +851,24 @@ function SandboxRoute() {
                                     }}
                                     canSharePosition={canSharePosition}
                                     isSharingPosition={isSharingPosition}
+                                    onCopyHgn={() => {
+                                        const hgnString = gameToHGNString(
+                                            currentPositionName ?? `Unnamed position`,
+                                            buildSandboxGamePosition(currentGameState) ?? {
+                                                cells: [],
+                                                currentTurnPlayer: `player-1`,
+                                                placementsRemaining: 9,
+                                            }
+                                        );
+                                        navigator.clipboard
+                                            .writeText(hgnString)
+                                            .then(() => {
+                                                toast.success(`HGN string copied to clipboard.`);
+                                            })
+                                            .catch(() => {
+                                                toast.error(`Failed to copy HGN string.`);
+                                            });
+                                    }}
                                 />
                             </div>
                         )}

@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
 
+import { HGN } from '@/utils/hgn/types.ts';
+
 type SandboxImportModalProps = {
-    isOpen: boolean
-    isLoading: boolean
-    errorMessage: string | null
-    parsePositionId: (value: string) => string | null
-    onClose: () => void
-    onImport: (positionId: string) => void
-    onInputChange: () => void
+    isOpen: boolean;
+    isLoading: boolean;
+    errorMessage: string | null;
+    parsePositionId: (value: string) => string | null;
+    parsePositionHgn: (value: string) => HGN | null;
+    onClose: () => void;
+    onIdImport: (positionId: string) => void;
+    onHgnImport: (positionHgn: HGN) => void;
+    onInputChange: () => void;
 };
 
 function SandboxImportModal({
@@ -15,15 +19,19 @@ function SandboxImportModal({
     isLoading,
     errorMessage,
     parsePositionId,
+    parsePositionHgn,
     onClose,
-    onImport,
+    onIdImport,
+    onHgnImport,
     onInputChange,
 }: Readonly<SandboxImportModalProps>) {
-    const [inputValue, setInputValue] = useState(``);
+    const [idInputValue, setIdInputValue] = useState(``);
+    const [hgnInputValue, setHgnInputValue] = useState(``);
 
     useEffect(() => {
         if (!isOpen) {
-            setInputValue(``);
+            setIdInputValue(``);
+            setHgnInputValue(``);
         }
     }, [isOpen]);
 
@@ -31,12 +39,17 @@ function SandboxImportModal({
         return null;
     }
 
-    const parsedPositionId = parsePositionId(inputValue);
-    const hasInput = inputValue.trim().length > 0;
-    const validationMessage = hasInput && !parsedPositionId
-        ? `Enter a valid sandbox position id or link.`
-        : null;
-    const visibleErrorMessage = validationMessage ?? errorMessage;
+    const parsedPositionId = parsePositionId(idInputValue);
+    const hasIdInput = idInputValue.trim().length > 0;
+    const idValidationMessage =
+        hasIdInput && !parsedPositionId ? `Enter a valid sandbox position id or link.` : null;
+    const visibleIdErrorMessage = idValidationMessage ?? errorMessage;
+
+    const parsedPositionHgn = parsePositionHgn(hgnInputValue);
+    const hasHgnInput = hgnInputValue.trim().length > 0;
+    const hgnValidationMessage =
+        hasHgnInput && !parsedPositionHgn ? `Enter a valid HGN string.` : null;
+    const visibleHgnErrorMessage = hgnValidationMessage ?? errorMessage;
 
     return (
         <div className="absolute inset-0 flex items-center justify-center px-4">
@@ -50,13 +63,14 @@ function SandboxImportModal({
                 </h1>
 
                 <p className="mt-4 text-sm leading-6 text-slate-200 sm:text-base">
-                    Paste a shared sandbox ID or a full sandbox link to load that position onto your board.
+                    Paste an HGN, a shared sandbox ID or a full sandbox link to load that position
+                    onto your board.
                 </p>
 
                 <input
-                    value={inputValue}
+                    value={idInputValue}
                     onChange={(event) => {
-                        setInputValue(event.target.value);
+                        setIdInputValue(event.target.value);
                         onInputChange();
                     }}
                     placeholder="abc1234 or https://..."
@@ -65,9 +79,27 @@ function SandboxImportModal({
                     style={{ colorScheme: `dark` }}
                 />
 
-                {visibleErrorMessage && (
+                <textarea
+                    value={hgnInputValue}
+                    onChange={(event) => {
+                        setHgnInputValue(event.target.value);
+                        onInputChange();
+                    }}
+                    placeholder="version[1]&#10;name[Hexagon League 42]&#10;timecontrol[5+5];&#10;&#10; 1. [-1, 1] [1, 0]&#10; 2. [0, 1] [3, -1]&#10; 3. [0, -1] [1, -1]"
+                    autoFocus
+                    className="mt-6 w-full min-h-50 resize-y rounded-2xl border border-sky-300/15 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] outline-none transition placeholder:text-slate-500 focus:border-sky-300/40 focus:bg-slate-950 focus:ring-2 focus:ring-sky-300/12"
+                    style={{ colorScheme: `dark` }}
+                />
+
+                {visibleIdErrorMessage && (
                     <div className="mt-3 rounded-2xl border border-rose-600/60 bg-rose-500/10 px-4 py-3 text-left text-sm text-rose-600">
-                        {visibleErrorMessage}
+                        {visibleIdErrorMessage}
+                    </div>
+                )}
+
+                {visibleHgnErrorMessage && (
+                    <div className="mt-3 rounded-2xl border border-rose-600/60 bg-rose-500/10 px-4 py-3 text-left text-sm text-rose-600">
+                        {visibleHgnErrorMessage}
                     </div>
                 )}
 
@@ -83,13 +115,25 @@ function SandboxImportModal({
                     <button
                         onClick={() => {
                             if (parsedPositionId) {
-                                onImport(parsedPositionId);
+                                onIdImport(parsedPositionId);
                             }
                         }}
                         disabled={isLoading || !parsedPositionId}
                         className="rounded-full bg-sky-400 px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-slate-950 transition hover:-translate-y-0.5 hover:bg-sky-300 disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                        {isLoading ? `Loading...` : `Import`}
+                        {isLoading ? `Loading...` : `Import ID`}
+                    </button>
+
+                    <button
+                        onClick={() => {
+                            if (parsedPositionHgn) {
+                                onHgnImport(parsedPositionHgn);
+                            }
+                        }}
+                        disabled={isLoading || !parsedPositionHgn}
+                        className="rounded-full bg-sky-400 px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-slate-950 transition hover:-translate-y-0.5 hover:bg-sky-300 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                        {isLoading ? `Loading...` : `Import HGN`}
                     </button>
                 </div>
             </div>
